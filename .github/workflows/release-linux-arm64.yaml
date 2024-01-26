@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: arm64v8/ubuntu:20.04
+      options: --platform=linux/arm64
     strategy:
       matrix:
         platform:
@@ -66,7 +67,7 @@ jobs:
       - name: Build wails app for Linux
         shell: bash
         run: |
-          CGO_ENABLED=1 GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc wails build -skipbindings -platform ${{ matrix.platform }} \
+          CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
           -ldflags "-X main.version=${{ github.event.release.tag_name }} -X main.gaMeasurementID=${{ secrets.GA_MEASUREMENT_ID }} -X main.gaSecretKey=${{ secrets.LINUX_GA_SECRET }}" \
           -o tiny-rdm
 
