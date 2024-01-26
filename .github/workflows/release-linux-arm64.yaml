@@ -1,4 +1,4 @@
-name: Release Linux App
+name: Release Linux arm64 App
 
 on:
   release:
@@ -7,11 +7,11 @@ on:
 jobs:
   release:
     name: Release Linux App
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         platform:
-          - linux/amd64
+          - linux/arm64
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+          sudo apt-get install -y libc6-dev-i386 libgtk-3-dev libwebkit2gtk-4.0-dev gcc-aarch64-linux-gnu
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -64,45 +64,45 @@ jobs:
       - name: Build wails app for Linux
         shell: bash
         run: |
-          CGO_ENABLED=1 wails build -platform ${{ matrix.platform }} \
+          CGO_ENABLED=1 GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc wails build -skipbindings -platform ${{ matrix.platform }} \
           -ldflags "-X main.version=${{ github.event.release.tag_name }} -X main.gaMeasurementID=${{ secrets.GA_MEASUREMENT_ID }} -X main.gaSecretKey=${{ secrets.LINUX_GA_SECRET }}" \
           -o tiny-rdm
 
       - name: Setup control template
         shell: bash
         run: |
-          content=$(cat build/linux/tiny-rdm_0.0.0_amd64/DEBIAN/control)
+          content=$(cat build/linux/tiny-rdm_0.0.0_arm64/DEBIAN/control)
           content=$(echo "$content" | sed -e "s/{{.Name}}/$(jq -r '.name' wails.json)/g")
           content=$(echo "$content" | sed -e "s/{{.Info.ProductVersion}}/$(jq -r '.info.productVersion' wails.json)/g")
           content=$(echo "$content" | sed -e "s/{{.Author.Name}}/$(jq -r '.author.name' wails.json)/g")
           content=$(echo "$content" | sed -e "s/{{.Author.Email}}/$(jq -r '.author.email' wails.json)/g")
           content=$(echo "$content" | sed -e "s/{{.Info.Comments}}/$(jq -r '.info.comments' wails.json)/g")
           echo $content
-          echo "$content" > build/linux/tiny-rdm_0.0.0_amd64/DEBIAN/control
+          echo "$content" > build/linux/tiny-rdm_0.0.0_arm64/DEBIAN/control
 
       - name: Setup app template
         shell: bash
         run: |
-          content=$(cat build/linux/tiny-rdm_0.0.0_amd64/usr/share/applications/tiny-rdm.desktop)
+          content=$(cat build/linux/tiny-rdm_0.0.0_arm64/usr/share/applications/tiny-rdm.desktop)
           content=$(echo "$content" | sed -e "s/{{.Info.ProductName}}/$(jq -r '.info.productName' wails.json)/g")
           content=$(echo "$content" | sed -e "s/{{.Info.Comments}}/$(jq -r '.info.comments' wails.json)/g")
           echo $content
-          echo "$content" > build/linux/tiny-rdm_0.0.0_amd64/usr/share/applications/tiny-rdm.desktop
+          echo "$content" > build/linux/tiny-rdm_0.0.0_arm64/usr/share/applications/tiny-rdm.desktop
 
       - name: Package up deb file
         shell: bash
         run: |
-          mv build/bin/tiny-rdm build/linux/tiny-rdm_0.0.0_amd64/usr/local/bin/
+          mv build/bin/tiny-rdm build/linux/tiny-rdm_0.0.0_arm64/usr/local/bin/
           cd build/linux
-          mv tiny-rdm_0.0.0_amd64 "tiny-rdm_${{ steps.normalise_version.outputs.version }}_amd64"
-          sed -i 's/0.0.0/${{ steps.normalise_version.outputs.version }}/g' "tiny-rdm_${{ steps.normalise_version.outputs.version }}_amd64/DEBIAN/control"
-          dpkg-deb --build -Zxz "tiny-rdm_${{ steps.normalise_version.outputs.version }}_amd64"
+          mv tiny-rdm_0.0.0_arm64 "tiny-rdm_${{ steps.normalise_version.outputs.version }}_arm64"
+          sed -i 's/0.0.0/${{ steps.normalise_version.outputs.version }}/g' "tiny-rdm_${{ steps.normalise_version.outputs.version }}_arm64/DEBIAN/control"
+          dpkg-deb --build -Zxz "tiny-rdm_${{ steps.normalise_version.outputs.version }}_arm64"
 
       - name: Upload release asset
         shell: bash
         working-directory: ./build/linux/
         run: |
-          filepath="tiny-rdm_${{ steps.normalise_version.outputs.version }}_amd64.deb"
+          filepath="tiny-rdm_${{ steps.normalise_version.outputs.version }}_arm64.deb"
           filename="tiny-rdm_${{ steps.normalise_version.outputs.version }}_${{ steps.normalise_platform.outputs.tag }}.deb"
           upload_url="https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ github.event.release.id }}/assets"
           curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/octet-stream" --data-binary @$filepath "$upload_url?name=$filename"
